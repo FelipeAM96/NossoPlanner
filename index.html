@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nosso Planner ☀️</title>
+    
+    <!-- TAGS PARA O APP DE CELULAR (PWA) -->
+    <meta name="theme-color" content="#f59e0b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2693/2693507.png">
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background-color: #fef3c7;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; scroll-behavior: smooth; }
+        
+        /* Animações suaves */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+    </style>
+
+    <!-- Import Maps: React e Firebase -->
+    <script type="importmap">
+        {
+            "imports": {
+                "react": "https://esm.sh/react@18.2.0",
+                "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useMemo, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { initializeApp } from 'firebase/app';
+        import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+        // Habilitando cache local (offline)
+        import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAL68BBI5QQwi5y2X8SRYiTjK0i8qn8EwE",
+            authDomain: "nosso-planner.firebaseapp.com",
+            projectId: "nosso-planner",
+            storageBucket: "nosso-planner.firebasestorage.app",
+            messagingSenderId: "480834877035",
+            appId: "1:480834877035:web:618f65d637b430bb20232e"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        
+        // Habilita persistência offline segura para abas múltiplas
+        const db = initializeFirestore(app, {
+            localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
+        });
+
+        const IconCalendar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>;
+        const IconPlus = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>;
+        const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
+        const IconUsers = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+        const IconUser = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+        const IconHeart = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-500"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>;
+        const IconDownload = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>;
+        const IconWifiOff = () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="2" x2="22" y1="2" y2="22"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.82"/></svg>;
+
+        const getLocalDateString = (date) => {
+            const d = new Date(date);
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            return d.toISOString().split('T')[0];
+        };
+
+        const getDaysList = () => {
+            const days = [];
+            const today = new Date();
+            for (let i = -30; i <= 365; i++) {
+                const d = new Date(today);
+                d.setDate(today.getDate() + i);
+                days.push({
+                    dateObj: d,
+                    dateStr: getLocalDateString(d),
+                    dayName: d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''),
+                    dayNum: d.getDate(),
+                    monthName: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+                });
+            }
+            return days;
+        };
+
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [userName, setUserName] = useState('');
+            const [isNameModalOpen, setIsNameModalOpen] = useState(false);
+            const [installPrompt, setInstallPrompt] = useState(null);
+            const [isOffline, setIsOffline] = useState(!navigator.onLine);
+            
+            const [events, setEvents] = useState([]);
+            const [messages, setMessages] = useState([]);
+            
+            const [selectedDate, setSelectedDate] = useState(getLocalDateString(new Date()));
+            const daysList = useMemo(() => getDaysList(), []);
+            const todayRef = useRef(null);
+            
+            const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+            const [newEvent, setNewEvent] = useState({ title: '', time: '', type: 'solo' });
+            const [newMessage, setNewMessage] = useState('');
+
+            useEffect(() => {
+                const savedName = localStorage.getItem('nossoplanner_username');
+                if (savedName) setUserName(savedName);
+                else setIsNameModalOpen(true);
+
+                // Captura evento de instalação PWA
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    e.preventDefault();
+                    setInstallPrompt(e);
+                });
+
+                // Detecta status da internet
+                const handleOnline = () => setIsOffline(false);
+                const handleOffline = () => setIsOffline(true);
+                window.addEventListener('online', handleOnline);
+                window.addEventListener('offline', handleOffline);
+
+                // Login anônimo
+                const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+                    setUser(currentUser);
+                });
+
+                signInAnonymously(auth).catch(console.error);
+
+                // Scroll para o dia de hoje
+                setTimeout(() => {
+                    if (todayRef.current) todayRef.current.scrollIntoView({ behavior: 'smooth', inline: 'center' });
+                }, 100);
+
+                return () => {
+                    unsubscribeAuth();
+                    window.removeEventListener('online', handleOnline);
+                    window.removeEventListener('offline', handleOffline);
+                };
+            }, []);
+
+            useEffect(() => {
+                if (!user) return; 
+
+                const unsubscribeEvents = onSnapshot(collection(db, 'planner_events'), (snapshot) => {
+                    const loadedEvents = [];
+                    // Adicionando de onde vieram os dados para evitar piscar tela em alterações offline
+                    snapshot.forEach(doc => loadedEvents.push({ id: doc.id, ...doc.data() }));
+                    setEvents(loadedEvents);
+                }, (error) => console.warn("Aviso Firebase Eventos:", error));
+
+                const unsubscribeMessages = onSnapshot(collection(db, 'planner_messages'), (snapshot) => {
+                    const loadedMessages = [];
+                    const now = Date.now();
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        if (data.expiresAt > now) {
+                            loadedMessages.push({ id: doc.id, ...data });
+                        } else {
+                            deleteDoc(doc.ref).catch(()=>{});
+                        }
+                    });
+                    loadedMessages.sort((a, b) => b.timestamp - a.timestamp);
+                    setMessages(loadedMessages);
+                }, (error) => console.warn("Aviso Firebase Mensagens:", error));
+
+                return () => { unsubscribeEvents(); unsubscribeMessages(); };
+            }, [user]);
+
+            const handleInstallApp = async () => {
+                if (!installPrompt) return;
+                installPrompt.prompt();
+                const { outcome } = await installPrompt.userChoice;
+                if (outcome === 'accepted') setInstallPrompt(null);
+            };
+
+            const handleSaveName = (e) => {
+                e.preventDefault();
+                const name = new FormData(e.target).get('userName').trim();
+                if (name) {
+                    setUserName(name);
+                    localStorage.setItem('nossoplanner_username', name);
+                    setIsNameModalOpen(false);
+                }
+            };
+
+            const handleAddEvent = async (e) => {
+                e.preventDefault();
+                if (!newEvent.title.trim() || !user) return;
+
+                // Salva offline automaticamente se não houver rede
+                await addDoc(collection(db, 'planner_events'), {
+                    title: newEvent.title,
+                    time: newEvent.time,
+                    date: selectedDate,
+                    type: newEvent.type,
+                    author: userName,
+                    authorId: user.uid,
+                    timestamp: Date.now()
+                });
+                
+                setNewEvent({ title: '', time: '', type: 'solo' });
+                setIsEventModalOpen(false);
+            };
+
+            const handleDeleteEvent = async (id) => {
+                await deleteDoc(doc(db, 'planner_events', id));
+            };
+
+            // Nova regra de negócio para entrar no compromisso (Sem bugar espaços)
+            const handleJoinEvent = async (event) => {
+                const authors = event.author.split(' & ');
+                if (!authors.includes(userName)) {
+                    authors.push(userName);
+                }
+                await updateDoc(doc(db, 'planner_events', event.id), { 
+                    type: 'conjunto', 
+                    author: authors.join(' & ') 
+                });
+            };
+
+            // Nova regra de negócio para sair do compromisso 
+            const handleLeaveEvent = async (event) => {
+                const authors = event.author.split(' & ');
+                const remaining = authors.filter(name => name !== userName);
+                
+                if (remaining.length === 0) {
+                    // Se não sobrar ninguém, apaga o evento
+                    await deleteDoc(doc(db, 'planner_events', event.id));
+                } else {
+                    await updateDoc(doc(db, 'planner_events', event.id), { 
+                        type: remaining.length > 1 ? 'conjunto' : 'solo', 
+                        author: remaining.join(' & ') 
+                    });
+                }
+            };
+
+            const handleAddMessage = async (e) => {
+                e.preventDefault();
+                if (!newMessage.trim() || !user) return;
+
+                const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+                await addDoc(collection(db, 'planner_messages'), {
+                    text: newMessage,
+                    author: userName,
+                    timestamp: Date.now(),
+                    expiresAt: Date.now() + ONE_WEEK_MS
+                });
+                setNewMessage('');
+            };
+
+            // Sort Events: Primeiro quem tem hora, depois em ordem alfabética da hora. Sem hora vai para o final.
+            const dailyEvents = events.filter(e => e.date === selectedDate).sort((a, b) => {
+                if (a.time && b.time) return a.time.localeCompare(b.time);
+                if (a.time && !b.time) return -1;
+                if (!a.time && b.time) return 1;
+                return a.timestamp - b.timestamp;
+            });
+            const soloEvents = dailyEvents.filter(e => e.type === 'solo');
+            const jointEvents = dailyEvents.filter(e => e.type === 'conjunto');
+
+            return (
+                <div className="min-h-screen pb-20 md:pb-8 flex flex-col">
+                    <header className="bg-white shadow-sm sticky top-0 z-10 border-b border-amber-100">
+                        <div className="w-full max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <IconCalendar />
+                                <h1 className="text-xl md:text-2xl font-bold text-amber-600">Nosso Planner</h1>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {isOffline && (
+                                    <div className="flex items-center gap-1 text-[10px] md:text-xs font-bold text-rose-500 bg-rose-50 px-2 py-1 rounded-full border border-rose-100">
+                                        <IconWifiOff /> <span className="hidden sm:inline">Modo Offline</span>
+                                    </div>
+                                )}
+                                {installPrompt && !isOffline && (
+                                    <button onClick={handleInstallApp} className="flex items-center gap-1 text-xs font-bold text-white bg-amber-500 px-3 py-1.5 rounded-full hover:bg-amber-600 transition active:scale-95 shadow-sm animate-pulse">
+                                        <IconDownload /> Instalar
+                                    </button>
+                                )}
+                                <div onClick={() => setIsNameModalOpen(true)} className="text-sm font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full cursor-pointer hover:bg-slate-200 transition truncate max-w-[120px]">
+                                    {userName || 'Perfil'}
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="w-full max-w-6xl mx-auto px-2 md:px-4 mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1">
+                        
+                        <div className="lg:col-span-2 flex flex-col gap-4">
+                            <div className="bg-white rounded-2xl shadow-sm p-3 md:p-4 border border-slate-100">
+                                <div className="flex overflow-x-auto no-scrollbar gap-2 pb-2 snap-x items-center">
+                                    {daysList.map((day) => {
+                                        const isSelected = day.dateStr === selectedDate;
+                                        const isToday = day.dateStr === getLocalDateString(new Date());
+                                        return (
+                                            <button key={day.dateStr} ref={isToday ? todayRef : null} onClick={() => setSelectedDate(day.dateStr)}
+                                                className={`snap-center flex flex-col items-center min-w-[3.5rem] md:min-w-[4.5rem] p-2 rounded-xl transition-all ${isSelected ? 'bg-amber-400 text-amber-900 shadow-md scale-105 font-bold border-2 border-amber-500' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-transparent'}`}>
+                                                <span className="text-[10px] md:text-xs uppercase tracking-wider font-semibold">{day.monthName}</span>
+                                                <span className="text-lg md:text-xl font-bold my-0.5">{day.dayNum}</span>
+                                                <span className="text-[10px] md:text-xs uppercase tracking-wider">{isToday ? 'Hoje' : day.dayName}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6 flex-1 flex flex-col border border-slate-100">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-lg md:text-xl font-bold text-slate-800 flex items-center gap-2">Compromissos</h2>
+                                    <button onClick={() => setIsEventModalOpen(true)} className="bg-amber-400 hover:bg-amber-500 text-amber-900 p-2 md:px-4 md:py-2 rounded-full font-bold flex items-center gap-1 transition shadow-sm active:scale-95"><IconPlus /> <span className="hidden md:inline">Adicionar</span></button>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="bg-emerald-50/50 p-3 rounded-2xl">
+                                        <h3 className="text-sm font-bold text-emerald-600 mb-3 flex items-center gap-1 uppercase tracking-wide"><IconUsers /> Nosso Tempo</h3>
+                                        <div className="space-y-2">
+                                            {jointEvents.length === 0 && <p className="text-xs text-slate-400 italic">Nada marcado juntos ainda.</p>}
+                                            {jointEvents.map(event => (
+                                                <div key={event.id} className="animate-fade-in bg-white border border-emerald-100 p-3 rounded-xl flex justify-between items-center shadow-sm">
+                                                    <div className="flex-1">
+                                                        <p className="font-semibold text-emerald-900 text-sm">{event.time && <span className="mr-2 text-emerald-700 bg-emerald-100 px-1 py-0.5 rounded text-[10px] font-bold">{event.time}</span>}{event.title}</p>
+                                                        <p className="text-[10px] text-emerald-600 mt-0.5">Com {event.author}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 ml-2">
+                                                        <button onClick={() => handleLeaveEvent(event)} className="text-[10px] font-bold text-emerald-600 bg-emerald-100 hover:bg-emerald-200 px-2 py-1 rounded-lg transition active:scale-95">Sair 👋</button>
+                                                        <button onClick={() => handleDeleteEvent(event.id)} className="text-emerald-300 hover:text-emerald-600 p-1"><IconTrash /></button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="bg-sky-50/50 p-3 rounded-2xl">
+                                        <h3 className="text-sm font-bold text-sky-600 mb-3 flex items-center gap-1 uppercase tracking-wide"><IconUser /> Solo</h3>
+                                        <div className="space-y-2">
+                                            {soloEvents.length === 0 && <p className="text-xs text-slate-400 italic">Nada por aqui.</p>}
+                                            {soloEvents.map(event => (
+                                                <div key={event.id} className="animate-fade-in bg-white border border-sky-100 p-3 rounded-xl flex justify-between items-center shadow-sm">
+                                                    <div className="flex-1">
+                                                        <p className="font-semibold text-sky-900 text-sm">{event.time && <span className="mr-2 text-sky-700 bg-sky-100 px-1 py-0.5 rounded text-[10px] font-bold">{event.time}</span>}{event.title}</p>
+                                                        <p className="text-[10px] text-sky-600 mt-0.5">De {event.author}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 ml-2">
+                                                        {!event.author.includes(userName) && (
+                                                            <button onClick={() => handleJoinEvent(event)} className="text-[10px] font-bold text-sky-600 bg-sky-100 hover:bg-sky-200 px-2 py-1 rounded-lg transition active:scale-95">Participar 🙋</button>
+                                                        )}
+                                                        <button onClick={() => handleDeleteEvent(event.id)} className="text-sky-300 hover:text-sky-600 p-1"><IconTrash /></button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-1 h-[400px] lg:h-auto">
+                            <div className="bg-rose-50 rounded-2xl shadow-sm p-4 border border-rose-100 h-full flex flex-col">
+                                <h2 className="text-lg md:text-xl font-bold text-rose-700 flex items-center gap-2 mb-2"><IconHeart /> Mural de Carinho</h2>
+                                <p className="text-[10px] text-rose-500 mb-3 font-medium">Recados duram 1 semana e somem magicamente!</p>
+                                <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar mb-4">
+                                    {messages.length === 0 && <p className="text-xs text-center text-rose-300 mt-10">Deixe um pouco de amor aqui...</p>}
+                                    {messages.map(msg => <div key={msg.id} className="animate-fade-in bg-white p-3 rounded-xl shadow-sm border border-rose-100"><p className="text-slate-700 text-sm">{msg.text}</p><div className="mt-2 text-[10px] text-rose-400 font-bold text-right">{msg.author}</div></div>)}
+                                </div>
+                                <form onSubmit={handleAddMessage} className="mt-auto pt-2 relative flex items-center">
+                                    <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Deixe um recadinho..." className="w-full bg-white border-2 border-rose-200 rounded-full py-3 px-4 pr-12 focus:outline-none focus:border-rose-400 text-sm shadow-sm" maxLength={150} />
+                                    <button type="submit" disabled={!newMessage.trim()} className="absolute right-1.5 bg-rose-400 hover:bg-rose-500 disabled:bg-rose-200 text-white rounded-full w-9 h-9 flex items-center justify-center transition active:scale-95"><IconHeart /></button>
+                                </form>
+                            </div>
+                        </div>
+                    </main>
+
+                    {isNameModalOpen && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                            <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-fade-in">
+                                <h2 className="text-2xl font-bold text-slate-800 mb-2">Quem é você? 👋</h2>
+                                <form onSubmit={handleSaveName}>
+                                    <input name="userName" defaultValue={userName} type="text" placeholder="Seu nome" className="w-full border-2 border-slate-200 rounded-xl p-3 mb-4 focus:outline-none focus:border-amber-400 font-medium text-lg" required autoFocus />
+                                    <button type="submit" className="w-full bg-amber-400 text-amber-900 hover:bg-amber-500 font-bold py-3 rounded-xl transition active:scale-95">Começar!</button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {isEventModalOpen && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4 z-50">
+                            <div className="bg-white rounded-t-3xl md:rounded-3xl p-6 w-full max-w-md shadow-2xl animate-[slideUp_0.3s_ease-out] md:animate-fade-in">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl font-bold text-slate-800">Novo Compromisso</h2>
+                                    <button type="button" onClick={() => setIsEventModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+                                </div>
+                                <form onSubmit={handleAddEvent}>
+                                    <input type="text" value={newEvent.title} onChange={(e) => setNewEvent({...newEvent, title: e.target.value})} placeholder="O que vai acontecer?" className="w-full border-2 border-slate-200 rounded-xl p-3 mb-4 focus:outline-none focus:border-amber-400" required autoFocus />
+                                    
+                                    <div className="mb-4">
+                                        <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">Horário (Opcional)</label>
+                                        <input type="time" value={newEvent.time} onChange={(e) => setNewEvent({...newEvent, time: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl p-3 focus:outline-none focus:border-amber-400" />
+                                    </div>
+
+                                    <div className="flex gap-3 mb-6">
+                                        <button type="button" onClick={() => setNewEvent({...newEvent, type: 'solo'})} className={`flex-1 py-3 rounded-xl border-2 font-bold transition flex items-center justify-center gap-1 ${newEvent.type === 'solo' ? 'border-sky-400 bg-sky-50 text-sky-700' : 'border-slate-100 text-slate-400'}`}><IconUser /> Só Meu</button>
+                                        <button type="button" onClick={() => setNewEvent({...newEvent, type: 'conjunto'})} className={`flex-1 py-3 rounded-xl border-2 font-bold transition flex items-center justify-center gap-1 ${newEvent.type === 'conjunto' ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-100 text-slate-400'}`}><IconUsers /> Nosso</button>
+                                    </div>
+                                    <button type="submit" disabled={!newEvent.title.trim()} className="w-full bg-amber-400 disabled:bg-amber-200 hover:bg-amber-500 text-amber-900 font-bold py-4 rounded-xl transition active:scale-95 shadow-md">Salvar Compromisso</button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+        // Registra o Service Worker para habilitar a Instalação (PWA)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW falhou: ', err));
+            });
+        }
+    </script>
+</body>
+</html>
