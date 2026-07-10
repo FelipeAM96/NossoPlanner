@@ -1,15 +1,15 @@
 {
-"name": "Nosso Planner",
-"short_name": "Planner",
-"start_url": "./index.html",
-"display": "standalone",
-"background_color": "#f0fdfa",
-"theme_color": "#8b5cf6",
-"icons": [
-{
-"src": "img/Logo_Planner.png",
-"sizes": "512x512",
-"type": "image/png"
-}
-]
+  "name": "Nosso Planner",
+  "short_name": "Planner",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f0fdfa",
+  "theme_color": "#8b5cf6",
+  "icons": [
+    {
+      "src": "img/Logo_Planner.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }
