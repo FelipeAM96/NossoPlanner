@@ -3,11 +3,11 @@
 "short_name": "Planner",
 "start_url": "./index.html",
 "display": "standalone",
-"background_color": "#fef3c7",
-"theme_color": "#f59e0b",
+"background_color": "#f0fdfa",
+"theme_color": "#8b5cf6",
 "icons": [
 {
-"src": "https://cdn-icons-png.flaticon.com/512/2693/2693507.png",
+"src": "img/Logo_Planner.png",
 "sizes": "512x512",
 "type": "image/png"
 }
