@@ -1,4 +1,4 @@
-const CACHE_NAME = 'planner-cache-v1.1';
+const CACHE_NAME = 'planner-cache-v2';
 
 const urlsToCache = [
     './',
